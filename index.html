@@ -283,7 +283,30 @@ function renameMe(){
 async function loadCloud(){
   const {data,error}=await sb.from("clients").select("*").order("sort_name");
   if(error){ document.getElementById("modeBanner").textContent="Load error: "+error.message; return; }
-  rows=data||[]; renderAll();
+  rows=data||[]; await loadView(); renderAll();
+}
+
+/* ===== Shared view state (filters + sort, saved centrally for everyone) ===== */
+async function loadView(){
+  try{
+    const {data,error}=await sb.from("app_state").select("state").eq("id","view").maybeSingle();
+    if(error||!data||!data.state) return;
+    const s=data.state;
+    if(s.sort&&s.sort.k){ sort={k:s.sort.k,dir:s.sort.dir===-1?-1:1}; }
+    for(const k in colFilters) delete colFilters[k];
+    if(s.colFilters&&typeof s.colFilters==='object'){ for(const k in s.colFilters) colFilters[k]=s.colFilters[k]; }
+    const q=document.getElementById("q"); if(q) q.value=s.q||"";
+    const fs=document.getElementById("fStage"); if(fs) fs.value=s.fStage||"";
+  }catch(e){}
+}
+let _saveViewT=null;
+function saveView(){
+  clearTimeout(_saveViewT);
+  _saveViewT=setTimeout(async()=>{
+    const state={sort:{k:sort.k,dir:sort.dir},colFilters:colFilters,
+      q:document.getElementById("q").value,fStage:document.getElementById("fStage").value};
+    try{ await sb.from("app_state").upsert({id:"view",state:state,updated_at:new Date().toISOString(),updated_by:me}); }catch(e){}
+  },600);
 }
 function subscribeRealtime(){
   channel=sb.channel("clients-room",{config:{presence:{key:me}}});
@@ -460,13 +483,13 @@ document.addEventListener("change",(e)=>{
   const el=e.target;
   if(el.matches(".st-sel")){ el.className="st-sel "+statusClass(el.value); setField(+el.dataset.id,el.dataset.f,el.value); }
   else if(el.matches(".own-sel")){ setField(+el.dataset.id,el.dataset.f,el.value||null); }
-  else if(el.closest && el.closest("#mspop")){ const col=msOpenCol; if(!col) return; const vals=[...document.querySelectorAll('#mspop input:checked')].map(i=>i.value); if(vals.length) colFilters[col]=vals; else delete colFilters[col]; updateMsBtn(col); computeKpis(); renderTable(); }
-  else if(el.matches("#fStage")){ computeKpis(); renderTable(); }
+  else if(el.closest && el.closest("#mspop")){ const col=msOpenCol; if(!col) return; const vals=[...document.querySelectorAll('#mspop input:checked')].map(i=>i.value); if(vals.length) colFilters[col]=vals; else delete colFilters[col]; updateMsBtn(col); computeKpis(); renderTable(); saveView(); }
+  else if(el.matches("#fStage")){ computeKpis(); renderTable(); saveView(); }
 });
 document.addEventListener("input",(e)=>{
   const el=e.target;
-  if(el.matches("input.fcol")){ const v=el.value.trim(); if(v) colFilters[el.dataset.col]=v; else delete colFilters[el.dataset.col]; computeKpis(); renderTable(); }
-  else if(el.matches("#q")){ computeKpis(); renderTable(); }
+  if(el.matches("input.fcol")){ const v=el.value.trim(); if(v) colFilters[el.dataset.col]=v; else delete colFilters[el.dataset.col]; computeKpis(); renderTable(); saveView(); }
+  else if(el.matches("#q")){ computeKpis(); renderTable(); saveView(); }
 });
 document.addEventListener("blur",(e)=>{
   const el=e.target;
@@ -479,13 +502,13 @@ document.addEventListener("click",(e)=>{
   const del=e.target.closest && e.target.closest("button.del");
   if(del){ deleteRow(+del.dataset.id); return; }
   const th=e.target.closest && e.target.closest("th[data-col]");
-  if(th){ const k=th.dataset.col; if(sort.k===k){ sort.dir=-sort.dir; } else { sort.k=k; sort.dir=1; } updateSortArrows(); renderTable(); }
+  if(th){ const k=th.dataset.col; if(sort.k===k){ sort.dir=-sort.dir; } else { sort.k=k; sort.dir=1; } updateSortArrows(); renderTable(); saveView(); }
 });
 function clearFilters(){ for(const k in colFilters) delete colFilters[k]; sort={k:DEFAULT_SORT.k,dir:DEFAULT_SORT.dir};
   document.getElementById("q").value=""; document.getElementById("fStage").value="";
   document.querySelectorAll("input.fcol").forEach(el=>el.value="");
   COLS.forEach(c=>{ if(c.type!=='text') updateMsBtn(c.k); });
-  closeMs(); updateSortArrows(); computeKpis(); renderTable(); }
+  closeMs(); updateSortArrows(); computeKpis(); renderTable(); saveView(); }
 
 async function addClient(){
   const code=prompt("File No. (e.g. M1779):")||null;

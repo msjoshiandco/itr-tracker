@@ -31,6 +31,17 @@ body.dark{
   --t-mehul:#15243c; --t-divya:#231a36; --t-urmi:#12302c; --t-khushi:#301a28;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 2px 10px rgba(0,0,0,.25);
 }
+body.dim{
+  --bg:#2b3445; --surface:#36414f; --surface2:#3e4a59; --frow:#3a4553;
+  --ink:#e8edf4; --muted:#a6b2c2; --line:#47535f; --thtx:#c3ccd8;
+  --brand2:#6aa6f5; --hover:#434f5e; --inputfocus:#2c3644;
+  --yesb:#c8efd0; --yest:#176235; --nob:#ffd6da; --not:#a32219; --nab:#ffeeb0; --nat:#7a5a00; --noneb:#44505f; --nonet:#9aa6b4;
+  --banner-bg:#3a3826; --banner-line:#544f33; --banner-tx:#ecd99a;
+  --done-bg:#26402f; --done-line:#3a6048;
+  --o-mehul:#3b82f6; --o-divya:#a855f7; --o-urmi:#14b8a6; --o-khushi:#ec4899;
+  --t-mehul:#2f3e54; --t-divya:#3a3050; --t-urmi:#27463f; --t-khushi:#46313f;
+  --shadow:0 1px 2px rgba(0,0,0,.2),0 2px 9px rgba(0,0,0,.18);
+}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
   font-family:'Inter',"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:13px;-webkit-font-smoothing:antialiased}
@@ -249,11 +260,12 @@ const colFilters={};
 let headBuilt=false, msOpenCol=null;
 const statusRank={Yes:0,No:1,NA:2,"":3};
 
-function applyTheme(t){ document.body.classList.toggle('dark', t==='dark'); const b=document.getElementById('themeBtn'); if(b) b.textContent = t==='dark'?'☀':'🌙'; localStorage.setItem('itr_theme',t); }
+const THEMES=['light','dim','dark']; const THEME_ICON={light:'☀',dim:'◐',dark:'🌙'};
+function applyTheme(t){ if(!THEMES.includes(t)) t='dark'; document.body.classList.remove('dim','dark'); if(t!=='light') document.body.classList.add(t); const b=document.getElementById('themeBtn'); if(b){ b.textContent=THEME_ICON[t]; b.title='Theme: '+t+' — click to change'; } localStorage.setItem('itr_theme',t); }
 
 window.addEventListener("DOMContentLoaded", ()=>{
   applyTheme(localStorage.getItem('itr_theme')||'dark');
-  document.getElementById('themeBtn').addEventListener('click', ()=>applyTheme(document.body.classList.contains('dark')?'light':'dark'));
+  document.getElementById('themeBtn').addEventListener('click', ()=>{ const cur=localStorage.getItem('itr_theme')||'dark'; applyTheme(THEMES[(THEMES.indexOf(cur)+1)%THEMES.length]); });
   me=getName();
   sb=supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   document.getElementById("modeBanner").textContent="Live — anyone with the link can view and edit. Changes save automatically and sync to everyone.";

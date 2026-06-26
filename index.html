@@ -102,6 +102,13 @@ th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
 th.sortable:hover{color:var(--brand2)}
 .ar{font-size:10px;color:var(--brand2);margin-left:2px}
 .fcol{width:100%;height:24px;border:1px solid var(--line);border-radius:7px;font-size:11px;padding:0 5px;background:var(--surface);color:var(--ink);box-sizing:border-box;font-family:inherit}
+.ms-btn{width:100%;height:24px;border:1px solid var(--line);border-radius:7px;font-size:11px;padding:0 16px 0 6px;background:var(--surface);color:var(--ink);box-sizing:border-box;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:inherit;position:relative}
+.ms-btn::after{content:'▾';position:absolute;right:5px;top:5px;font-size:8px;color:var(--muted)}
+.ms-btn.act{border-color:var(--brand2);color:var(--brand2);font-weight:600}
+#mspop{position:fixed;z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow);padding:5px;max-height:250px;overflow:auto;min-width:140px}
+#mspop label{display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:12px;border-radius:6px;cursor:pointer;color:var(--ink);white-space:nowrap;text-transform:none;letter-spacing:0}
+#mspop label:hover{background:var(--hover)}
+#mspop input{margin:0;width:14px;height:14px;accent-color:var(--brand2)}
 tbody td{background:var(--surface)}
 tbody tr[data-o="Mehul"] td{background:var(--t-mehul)}
 tbody tr[data-o="Divya"] td{background:var(--t-divya)}
@@ -201,6 +208,7 @@ th.actc,td.actc{width:38px;min-width:38px;text-align:center}
     </div>
   </div>
 </div>
+<div id="mspop" class="hidden"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -238,7 +246,7 @@ let sb=null, rows=[], me="", channel=null;
 const DEFAULT_SORT={k:'contact',dir:1};
 let sort={k:'contact',dir:1};
 const colFilters={};
-let headBuilt=false;
+let headBuilt=false, msOpenCol=null;
 const statusRank={Yes:0,No:1,NA:2,"":3};
 
 function applyTheme(t){ document.body.classList.toggle('dark', t==='dark'); const b=document.getElementById('themeBtn'); if(b) b.textContent = t==='dark'?'☀':'🌙'; localStorage.setItem('itr_theme',t); }
@@ -252,6 +260,8 @@ window.addEventListener("DOMContentLoaded", ()=>{
   document.getElementById("clearBtn").addEventListener("click", clearFilters);
   document.getElementById("addBtn").addEventListener("click", addClient);
   document.getElementById("exportBtn").addEventListener("click", exportCsv);
+  document.querySelector(".tablewrap").addEventListener("scroll", closeMs);
+  window.addEventListener("resize", closeMs);
   loadCloud().then(subscribeRealtime);
 });
 
@@ -305,6 +315,34 @@ async function deleteRow(id){
   rows=rows.filter(x=>x.id!==id); renderAll();
 }
 
+/* ===== Multi-select column filters ===== */
+function msOptions(col){
+  const c=COLS.find(x=>x.k===col);
+  if(c.type==='status') return [['Yes','Yes'],['No','No'],['NA','NA'],['__blank','(Blank)']];
+  const base=distinct(col).map(v=>[v,v]);
+  base.push(col==='owner'?['__none','Unassigned']:['__blank','(Blank)']);
+  return base;
+}
+function msLabel(col){
+  const sel=colFilters[col];
+  if(!Array.isArray(sel)||!sel.length) return 'All';
+  const map=Object.fromEntries(msOptions(col));
+  const names=sel.map(t=>map[t]||t);
+  return names.length<=2 ? names.join(', ') : names.length+' selected';
+}
+function updateMsBtn(col){ const b=document.querySelector('.ms-btn[data-col="'+col+'"]'); if(b){ b.textContent=msLabel(col); b.classList.toggle('act', Array.isArray(colFilters[col])&&colFilters[col].length>0); } }
+function openMs(btn){
+  const col=btn.dataset.col; msOpenCol=col;
+  const pop=document.getElementById('mspop');
+  const sel=Array.isArray(colFilters[col])?colFilters[col]:[];
+  pop.innerHTML=msOptions(col).map(([v,t])=>`<label><input type="checkbox" value="${esc(v)}"${sel.includes(v)?' checked':''}>${esc(t)}</label>`).join('');
+  const r=btn.getBoundingClientRect();
+  pop.style.left=Math.max(6,Math.min(r.left, window.innerWidth-186))+'px';
+  pop.style.top=(r.bottom+3)+'px';
+  pop.classList.remove('hidden');
+}
+function closeMs(){ const p=document.getElementById('mspop'); if(p) p.classList.add('hidden'); msOpenCol=null; }
+
 /* ===== Header (sortable) + per-column filters ===== */
 function colClass(k){ return k==='code'?'cfile ':(k==='name'?'cname ':''); }
 function distinct(k){return [...new Set(rows.map(r=>(r[k]==null?"":String(r[k])).trim()).filter(v=>v))].sort();}
@@ -313,14 +351,14 @@ function buildHead(){
   for(const c of COLS){ h+=`<th class="${colClass(c.k)}sortable" data-col="${c.k}">${c.label}<span class="ar"></span></th>`; }
   h+="<th class='actc'></th></tr><tr class='frow'>";
   for(const c of COLS){
-    let ctl;
-    if(c.type==='status') ctl=`<select class="fcol" data-col="${c.k}"><option value="">All</option><option>Yes</option><option>No</option><option>NA</option><option value="__blank">(Blank)</option></select>`;
-    else if(c.type==='enum'){ const opts=distinct(c.k).map(v=>`<option>${esc(v)}</option>`).join(""); const extra=c.k==='owner'?`<option value="__none">Unassigned</option>`:""; ctl=`<select class="fcol" data-col="${c.k}"><option value="">All</option>${opts}${extra}</select>`; }
-    else ctl=`<input class="fcol ft" data-col="${c.k}" placeholder="filter"/>`;
+    const ctl = c.type==='text'
+      ? `<input class="fcol ft" data-col="${c.k}" placeholder="filter"/>`
+      : `<button type="button" class="ms-btn" data-col="${c.k}">All</button>`;
     h+=`<th class="${colClass(c.k)}fcell">${ctl}</th>`;
   }
   h+="<th class='actc'></th></tr>"; thead.innerHTML=h;
-  document.querySelectorAll(".fcol").forEach(el=>{ if(colFilters[el.dataset.col]!=null) el.value=colFilters[el.dataset.col]; });
+  document.querySelectorAll("input.fcol").forEach(el=>{ if(colFilters[el.dataset.col]!=null) el.value=colFilters[el.dataset.col]; });
+  COLS.forEach(c=>{ if(c.type!=='text') updateMsBtn(c.k); });
   updateSortArrows();
 }
 function updateSortArrows(){ document.querySelectorAll("th[data-col]").forEach(th=>{ const s=th.querySelector(".ar"); if(s) s.textContent = sort.k===th.dataset.col ? (sort.dir>0?" ▲":" ▼") : ""; }); }
@@ -346,9 +384,11 @@ function filtered(){
     for(const c of COLS){
       const fv=colFilters[c.k]; if(!fv) continue;
       const cell=(r[c.k]==null?"":String(r[c.k]));
-      if(c.type==='text'){ if(!cell.toLowerCase().includes(fv.toLowerCase())) return false; }
-      else if(fv==='__blank'||fv==='__none'){ if(cell.trim()!=="") return false; }
-      else if(cell!==fv) return false;
+      if(c.type==='text'){ if(!cell.toLowerCase().includes(String(fv).toLowerCase())) return false; }
+      else if(Array.isArray(fv) && fv.length){
+        const ok=fv.some(t=>(t==='__blank'||t==='__none')?cell.trim()==="":cell===t);
+        if(!ok) return false;
+      }
     }
     return true;
   });
@@ -411,12 +451,12 @@ document.addEventListener("change",(e)=>{
   const el=e.target;
   if(el.matches(".st-sel")){ el.className="st-sel "+statusClass(el.value); setField(+el.dataset.id,el.dataset.f,el.value); }
   else if(el.matches(".own-sel")){ setField(+el.dataset.id,el.dataset.f,el.value||null); }
-  else if(el.matches("select.fcol")){ colFilters[el.dataset.col]=el.value; renderTable(); }
+  else if(el.closest && el.closest("#mspop")){ const col=msOpenCol; if(!col) return; const vals=[...document.querySelectorAll('#mspop input:checked')].map(i=>i.value); if(vals.length) colFilters[col]=vals; else delete colFilters[col]; updateMsBtn(col); renderTable(); }
   else if(el.matches("#fStage")){ renderTable(); }
 });
 document.addEventListener("input",(e)=>{
   const el=e.target;
-  if(el.matches("input.fcol")){ colFilters[el.dataset.col]=el.value; renderTable(); }
+  if(el.matches("input.fcol")){ const v=el.value.trim(); if(v) colFilters[el.dataset.col]=v; else delete colFilters[el.dataset.col]; renderTable(); }
   else if(el.matches("#q")){ renderTable(); }
 });
 document.addEventListener("blur",(e)=>{
@@ -424,6 +464,9 @@ document.addEventListener("blur",(e)=>{
   if(el.matches("input.cell")) setField(+el.dataset.id,el.dataset.f,el.value.trim()||null);
 },true);
 document.addEventListener("click",(e)=>{
+  const msb=e.target.closest && e.target.closest(".ms-btn");
+  if(msb){ if(msOpenCol===msb.dataset.col) closeMs(); else openMs(msb); return; }
+  if(!(e.target.closest && e.target.closest("#mspop"))) closeMs();
   const del=e.target.closest && e.target.closest("button.del");
   if(del){ deleteRow(+del.dataset.id); return; }
   const th=e.target.closest && e.target.closest("th[data-col]");
@@ -431,7 +474,9 @@ document.addEventListener("click",(e)=>{
 });
 function clearFilters(){ for(const k in colFilters) delete colFilters[k]; sort={k:DEFAULT_SORT.k,dir:DEFAULT_SORT.dir};
   document.getElementById("q").value=""; document.getElementById("fStage").value="";
-  document.querySelectorAll(".fcol").forEach(el=>el.value=""); updateSortArrows(); renderTable(); }
+  document.querySelectorAll("input.fcol").forEach(el=>el.value="");
+  COLS.forEach(c=>{ if(c.type!=='text') updateMsBtn(c.k); });
+  closeMs(); updateSortArrows(); renderTable(); }
 
 async function addClient(){
   const code=prompt("File No. (e.g. M1779):")||null;

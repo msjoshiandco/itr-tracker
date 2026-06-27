@@ -146,9 +146,9 @@ input.cell{border:1px solid transparent;border-radius:7px;height:25px;padding:0 
 input.cell::placeholder{color:var(--muted);opacity:.7}
 input.cell:hover{border-color:var(--line)} input.cell:focus{border-color:var(--brand2);outline:none;background:var(--inputfocus);box-shadow:0 0 0 2px rgba(74,130,176,.18)}
 input.ctin{width:150px}
-input.rmk{width:175px}
+input.rmk{width:320px}
 input.cfin{width:58px;font-weight:700;color:var(--brand2)}
-input.feein{width:60px}
+input.feein{width:46px}
 input.cnin{width:100%;min-width:248px;font-weight:600}
 button.del{border:1px solid var(--line);background:var(--surface);color:var(--not);border-radius:8px;width:24px;height:24px;font-size:12px;line-height:1;padding:0;cursor:pointer}
 button.del:hover{background:var(--nob);border-color:var(--not)}
@@ -245,7 +245,6 @@ const COLS=[
   {k:'code',label:'File No.',type:'text'},
   {k:'name',label:'Client',type:'text'},
   {k:'contact',label:'Contact',type:'text'},
-  {k:'itr_type',label:'Type',type:'type'},
   {k:'data_received',label:'Data rcd',type:'status'},
   {k:'data_written',label:'Data written',type:'status'},
   {k:'tb_ready',label:'TB ready',type:'status'},
@@ -254,7 +253,7 @@ const COLS=[
   {k:'tax_paid',label:'Tax paid',type:'status'},
   {k:'filed',label:'Filed',type:'status'},
   {k:'fees',label:'Fees',type:'text'},
-  {k:'fees_received',label:'Fees rcvd',type:'text'},
+  {k:'fees_received',label:'Rcvd',type:'text'},
   {k:'owner',label:'Owner',type:'enum'},
   {k:'remarks',label:'Remarks',type:'text'}
 ];
@@ -459,8 +458,6 @@ function renderTable(flashId){
     cells+=`<td class="cfile"><input class="cell cfin" data-id="${r.id}" data-f="code" value="${esc(val(r,'code'))}" placeholder="—"/></td>`;
     cells+=`<td class="cname"><input class="cell cnin" data-id="${r.id}" data-f="name" value="${esc(val(r,'name'))}" placeholder="—"/></td>`;
     cells+=`<td><input class="cell ctin" data-id="${r.id}" data-f="contact" value="${esc(val(r,'contact'))}" placeholder="—"/></td>`;
-    cells+=`<td><select class="type-sel" data-id="${r.id}" data-f="itr_type">`+
-      TABS.map(o=>`<option${o===r.itr_type?" selected":""}>${o}</option>`).join("")+`</select></td>`;
     for(const [f] of STAGES){
       const v=val(r,f);
       cells+=`<td><select class="st-sel ${statusClass(v)}" data-id="${r.id}" data-f="${f}">`+

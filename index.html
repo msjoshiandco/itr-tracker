@@ -252,8 +252,8 @@ const COLS=[
   {k:'comp_ready',label:'Comp ready',type:'status'},
   {k:'tax_paid',label:'Tax paid',type:'status'},
   {k:'filed',label:'Filed',type:'status'},
-  {k:'fees',label:'Fees',type:'text'},
-  {k:'fees_received',label:'Rcvd',type:'text'},
+  {k:'fees',label:'Fees',type:'text',nofilter:true},
+  {k:'fees_received',label:'Rcvd',type:'text',nofilter:true},
   {k:'owner',label:'Owner',type:'enum'},
   {k:'remarks',label:'Remarks',type:'text'}
 ];
@@ -397,7 +397,9 @@ function buildHead(){
   }
   h+="<th class='actc'></th></tr><tr class='frow'>";
   for(const c of COLS){
-    const ctl = c.type==='text'
+    const ctl = c.nofilter
+      ? ``
+      : c.type==='text'
       ? `<input class="fcol ft" data-col="${c.k}" placeholder="filter"/>`
       : c.type==='type'
       ? ``

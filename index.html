@@ -105,7 +105,7 @@ thead tr.hrow th{position:sticky;top:0;z-index:4;height:30px}
 thead tr.frow th{position:sticky;top:30px;z-index:4;background:var(--frow);padding:3px 6px}
 .cfile{box-sizing:border-box;width:66px;min-width:66px;max-width:66px}
 td.cfile,thead .cfile{position:sticky;left:0;z-index:2;background:var(--surface)}
-td.cname,thead .cname{position:sticky;left:66px;z-index:2;background:var(--surface);min-width:175px;white-space:normal}
+td.cname,thead .cname{position:sticky;left:66px;z-index:2;background:var(--surface);min-width:262px;white-space:normal}
 thead tr.hrow .cfile,thead tr.hrow .cname{z-index:6;background:var(--surface2);top:0}
 thead tr.frow .cfile,thead tr.frow .cname{z-index:6;background:var(--frow);top:30px}
 th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
@@ -145,10 +145,11 @@ select.type-sel{font-weight:700;color:var(--brand2)}
 input.cell{border:1px solid transparent;border-radius:7px;height:25px;padding:0 7px;font-size:11.5px;width:90px;background:transparent;color:var(--ink);font-family:inherit}
 input.cell::placeholder{color:var(--muted);opacity:.7}
 input.cell:hover{border-color:var(--line)} input.cell:focus{border-color:var(--brand2);outline:none;background:var(--inputfocus);box-shadow:0 0 0 2px rgba(74,130,176,.18)}
-input.ctin{width:185px}
+input.ctin{width:150px}
 input.rmk{width:175px}
 input.cfin{width:58px;font-weight:700;color:var(--brand2)}
-input.cnin{width:100%;min-width:155px;font-weight:600}
+input.feein{width:60px}
+input.cnin{width:100%;min-width:248px;font-weight:600}
 button.del{border:1px solid var(--line);background:var(--surface);color:var(--not);border-radius:8px;width:24px;height:24px;font-size:12px;line-height:1;padding:0;cursor:pointer}
 button.del:hover{background:var(--nob);border-color:var(--not)}
 th.actc,td.actc{width:38px;min-width:38px;text-align:center}
@@ -466,8 +467,8 @@ function renderTable(flashId){
         ["","Yes","No","NA"].map(o=>`<option value="${o}"${o===v?" selected":""}>${o||"—"}</option>`).join("")+
         `</select></td>`;
     }
-    cells+=`<td><input class="cell" data-id="${r.id}" data-f="fees" value="${esc(val(r,'fees'))}" placeholder="—"/></td>`;
-    cells+=`<td><input class="cell" data-id="${r.id}" data-f="fees_received" value="${esc(val(r,'fees_received'))}" placeholder="—"/></td>`;
+    cells+=`<td><input class="cell feein" data-id="${r.id}" data-f="fees" value="${esc(val(r,'fees'))}" placeholder="—"/></td>`;
+    cells+=`<td><input class="cell feein" data-id="${r.id}" data-f="fees_received" value="${esc(val(r,'fees_received'))}" placeholder="—"/></td>`;
     cells+=`<td><select class="own-sel" data-id="${r.id}" data-f="owner"><option value="">Unassigned</option>`+
       OWNERS.map(o=>`<option${o===r.owner?" selected":""}>${o}</option>`).join("")+`</select></td>`;
     cells+=`<td><input class="cell rmk" data-id="${r.id}" data-f="remarks" value="${esc(val(r,'remarks'))}" placeholder="—"/></td>`;

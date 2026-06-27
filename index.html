@@ -55,6 +55,12 @@ header .sub{font-size:13.5px;font-weight:500;opacity:.92;margin-top:3px;letter-s
 .banner{background:var(--banner-bg);border-bottom:1px solid var(--banner-line);color:var(--banner-tx);font-size:12px;padding:6px 16px;text-align:center}
 
 .wrap{padding:16px 20px 36px}
+.tabs{display:flex;gap:6px;margin-bottom:14px;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:5px;box-shadow:var(--shadow);width:fit-content}
+.tab{border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:13.5px;font-weight:700;padding:9px 20px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:9px;transition:background .12s,color .12s}
+.tab:hover{color:var(--brand2)}
+.tab.active{background:var(--hdr);color:#fff;box-shadow:var(--shadow)}
+.tab .tcount{font-size:11px;font-weight:800;background:var(--surface2);color:var(--thtx);padding:2px 9px;border-radius:11px;min-width:22px;text-align:center}
+.tab.active .tcount{background:rgba(255,255,255,.26);color:#fff}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:13px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:13px}
 .kpi .ic{width:42px;height:42px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;opacity:.9}
@@ -134,7 +140,8 @@ select.st-sel{appearance:none;border:1px solid transparent;border-radius:20px;he
 .st-No{background-color:var(--nob);color:var(--not)}
 .st-NA{background-color:var(--nab);color:var(--nat)}
 .st-none{background-color:var(--noneb);color:var(--nonet)}
-select.own-sel{border:1px solid var(--line);border-radius:8px;height:25px;padding:0 7px;font-size:11.5px;background:var(--surface);color:var(--ink);font-family:inherit}
+select.own-sel,select.type-sel{border:1px solid var(--line);border-radius:8px;height:25px;padding:0 7px;font-size:11.5px;background:var(--surface);color:var(--ink);font-family:inherit}
+select.type-sel{font-weight:700;color:var(--brand2)}
 input.cell{border:1px solid transparent;border-radius:7px;height:25px;padding:0 7px;font-size:11.5px;width:90px;background:transparent;color:var(--ink);font-family:inherit}
 input.cell::placeholder{color:var(--muted);opacity:.7}
 input.cell:hover{border-color:var(--line)} input.cell:focus{border-color:var(--brand2);outline:none;background:var(--inputfocus);box-shadow:0 0 0 2px rgba(74,130,176,.18)}
@@ -168,6 +175,11 @@ th.actc,td.actc{width:38px;min-width:38px;text-align:center}
   <div class="banner" id="modeBanner"></div>
 
   <div class="wrap">
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="ITR">ITR<span class="tcount" id="tc-ITR">0</span></button>
+      <button class="tab" data-tab="Audit">Audit<span class="tcount" id="tc-Audit">0</span></button>
+      <button class="tab" data-tab="Partner">Partner<span class="tcount" id="tc-Partner">0</span></button>
+    </div>
     <div class="kpis">
       <div class="kpi t"><div class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div><div class="lbl" id="lblTotal">Total clients</div><div class="val" id="kTotal">0</div></div></div>
       <div class="kpi g"><div class="ic"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div><div class="lbl">Filed</div><div class="val" id="kFiled">0</div></div></div>
@@ -232,7 +244,7 @@ const COLS=[
   {k:'code',label:'File No.',type:'text'},
   {k:'name',label:'Client',type:'text'},
   {k:'contact',label:'Contact',type:'text'},
-  {k:'itr_type',label:'Type',type:'enum'},
+  {k:'itr_type',label:'Type',type:'type'},
   {k:'data_received',label:'Data rcd',type:'status'},
   {k:'data_written',label:'Data written',type:'status'},
   {k:'tb_ready',label:'TB ready',type:'status'},
@@ -251,6 +263,8 @@ const DEFAULT_SORT={k:'contact',dir:1};
 let sort={k:'contact',dir:1};
 const colFilters={};
 let headBuilt=false, msOpenCol=null;
+let activeTab='ITR';
+const TABS=['ITR','Audit','Partner'];
 const statusRank={Yes:0,No:1,NA:2,"":3};
 
 const THEMES=['soft','sepia']; const THEME_ICON={soft:'☀',sepia:'◑'};
@@ -295,6 +309,7 @@ async function loadView(){
     if(s.sort&&s.sort.k){ sort={k:s.sort.k,dir:s.sort.dir===-1?-1:1}; }
     for(const k in colFilters) delete colFilters[k];
     if(s.colFilters&&typeof s.colFilters==='object'){ for(const k in s.colFilters) colFilters[k]=s.colFilters[k]; }
+    delete colFilters['itr_type'];
     const q=document.getElementById("q"); if(q) q.value=s.q||"";
     const fs=document.getElementById("fStage"); if(fs) fs.value=s.fStage||"";
   }catch(e){}
@@ -376,11 +391,16 @@ function colClass(k){ return k==='code'?'cfile ':(k==='name'?'cname ':''); }
 function distinct(k){return [...new Set(rows.map(r=>(r[k]==null?"":String(r[k])).trim()).filter(v=>v))].sort();}
 function buildHead(){
   const thead=document.getElementById("thead"); let h="<tr class='hrow'>";
-  for(const c of COLS){ h+=`<th class="${colClass(c.k)}sortable" data-col="${c.k}">${c.label}<span class="ar"></span></th>`; }
+  for(const c of COLS){
+    if(c.type==='type'){ h+=`<th class="${colClass(c.k)}">${c.label}</th>`; }
+    else { h+=`<th class="${colClass(c.k)}sortable" data-col="${c.k}">${c.label}<span class="ar"></span></th>`; }
+  }
   h+="<th class='actc'></th></tr><tr class='frow'>";
   for(const c of COLS){
     const ctl = c.type==='text'
       ? `<input class="fcol ft" data-col="${c.k}" placeholder="filter"/>`
+      : c.type==='type'
+      ? ``
       : `<button type="button" class="ms-btn" data-col="${c.k}">All</button>`;
     h+=`<th class="${colClass(c.k)}fcell">${ctl}</th>`;
   }
@@ -405,6 +425,7 @@ function filtered(){
   const q=document.getElementById("q").value.trim().toLowerCase();
   const fs=document.getElementById("fStage").value;
   return rows.filter(r=>{
+    if((r.itr_type||"").trim()!==activeTab) return false;
     if(q){const hay=((r.code||"")+" "+(r.name||"")+" "+(r.contact||"")).toLowerCase();if(!hay.includes(q))return false;}
     if(fs==="filed"){ if(r.filed!=="Yes") return false; }
     else if(fs==="notstarted"){ if(r.data_received==="Yes") return false; }
@@ -437,7 +458,8 @@ function renderTable(flashId){
     cells+=`<td class="cfile"><input class="cell cfin" data-id="${r.id}" data-f="code" value="${esc(val(r,'code'))}" placeholder="—"/></td>`;
     cells+=`<td class="cname"><input class="cell cnin" data-id="${r.id}" data-f="name" value="${esc(val(r,'name'))}" placeholder="—"/></td>`;
     cells+=`<td><input class="cell ctin" data-id="${r.id}" data-f="contact" value="${esc(val(r,'contact'))}" placeholder="—"/></td>`;
-    cells+=`<td><input class="cell" style="width:64px" data-id="${r.id}" data-f="itr_type" value="${esc(val(r,'itr_type'))}" placeholder="—"/></td>`;
+    cells+=`<td><select class="type-sel" data-id="${r.id}" data-f="itr_type">`+
+      TABS.map(o=>`<option${o===r.itr_type?" selected":""}>${o}</option>`).join("")+`</select></td>`;
     for(const [f] of STAGES){
       const v=val(r,f);
       cells+=`<td><select class="st-sel ${statusClass(v)}" data-id="${r.id}" data-f="${f}">`+
@@ -452,7 +474,8 @@ function renderTable(flashId){
     cells+=`<td class="actc"><button class="del" data-id="${r.id}" title="Delete this client">✕</button></td>`;
     tr.innerHTML=cells; tb.appendChild(tr);
   }
-  document.getElementById("count").textContent=list.length+" of "+rows.length+" shown";
+  const tabTotal=rows.filter(r=>(r.itr_type||"").trim()===activeTab).length;
+  document.getElementById("count").textContent=list.length+" of "+tabTotal+" shown";
 }
 function computeKpis(){
   const base=filtered();
@@ -476,12 +499,18 @@ function computeKpis(){
       `<div class="bar"><i style="width:${pct}%"></i></div><div class="pct">${pct}%</div></div>`;
   });
 }
-function renderAll(flashId){ if(!headBuilt){ buildHead(); headBuilt=true; } computeKpis(); renderTable(flashId); }
+function updateTabCounts(){
+  const c={ITR:0,Audit:0,Partner:0};
+  rows.forEach(r=>{ const t=(r.itr_type||"").trim(); if(c[t]!=null) c[t]++; });
+  TABS.forEach(t=>{ const el=document.getElementById("tc-"+t); if(el) el.textContent=c[t]; });
+}
+function renderAll(flashId){ if(!headBuilt){ buildHead(); headBuilt=true; } updateTabCounts(); computeKpis(); renderTable(flashId); }
 
 /* ===== Events ===== */
 document.addEventListener("change",(e)=>{
   const el=e.target;
   if(el.matches(".st-sel")){ el.className="st-sel "+statusClass(el.value); setField(+el.dataset.id,el.dataset.f,el.value); }
+  else if(el.matches(".type-sel")){ setField(+el.dataset.id,"itr_type",el.value); updateTabCounts(); renderTable(); }
   else if(el.matches(".own-sel")){ setField(+el.dataset.id,el.dataset.f,el.value||null); }
   else if(el.closest && el.closest("#mspop")){ const col=msOpenCol; if(!col) return; const vals=[...document.querySelectorAll('#mspop input:checked')].map(i=>i.value); if(vals.length) colFilters[col]=vals; else delete colFilters[col]; updateMsBtn(col); computeKpis(); renderTable(); saveView(); }
   else if(el.matches("#fStage")){ computeKpis(); renderTable(); saveView(); }
@@ -496,6 +525,8 @@ document.addEventListener("blur",(e)=>{
   if(el.matches("input.cell")) setField(+el.dataset.id,el.dataset.f,el.value.trim()||null);
 },true);
 document.addEventListener("click",(e)=>{
+  const tab=e.target.closest && e.target.closest(".tab");
+  if(tab){ if(activeTab!==tab.dataset.tab){ activeTab=tab.dataset.tab; document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active", b===tab)); closeMs(); computeKpis(); renderTable(); } return; }
   const msb=e.target.closest && e.target.closest(".ms-btn");
   if(msb){ if(msOpenCol===msb.dataset.col) closeMs(); else openMs(msb); return; }
   if(!(e.target.closest && e.target.closest("#mspop"))) closeMs();
@@ -513,7 +544,7 @@ function clearFilters(){ for(const k in colFilters) delete colFilters[k]; sort={
 async function addClient(){
   const code=prompt("File No. (e.g. M1779):")||null;
   const name=prompt("Client name:"); if(!name) return;
-  const base={code,name,contact:null,itr_type:"ITR",data_received:null,data_written:null,tb_ready:null,
+  const base={code,name,contact:null,itr_type:activeTab,data_received:null,data_written:null,tb_ready:null,
     tb_fed:null,comp_ready:null,tax_paid:null,filed:null,fees:null,fees_received:null,owner:null,remarks:null};
   const {data,error}=await sb.from("clients").insert(base).select().single();
   if(error){ alert(error.message); return; }

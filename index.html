@@ -115,6 +115,11 @@ th.sortable:hover{color:var(--brand2)}
 .ms-btn::after{content:'▾';position:absolute;right:5px;top:5px;font-size:8px;color:var(--muted)}
 .ms-btn.act{border-color:var(--brand2);color:var(--brand2);font-weight:600}
 .fcol{width:100%;height:24px;border:1px solid var(--line);border-radius:7px;font-size:11px;padding:0 5px;background:var(--surface);color:var(--ink);box-sizing:border-box;font-family:inherit}
+.fwrap{display:flex;gap:5px;align-items:center}
+.fwrap .fcol{flex:1;min-width:0;width:auto}
+.blkbtn{height:24px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.03em;padding:0 9px;cursor:pointer;white-space:nowrap;font-family:inherit}
+.blkbtn:hover{border-color:var(--brand2);color:var(--brand2)}
+.blkbtn.act{background:var(--brand2);color:#fff;border-color:var(--brand2)}
 #mspop{position:fixed;z-index:60;background:var(--surface);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow);padding:5px;max-height:250px;overflow:auto;min-width:140px}
 #mspop label{display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:12px;border-radius:6px;cursor:pointer;color:var(--ink);white-space:nowrap;text-transform:none;letter-spacing:0}
 #mspop label:hover{background:var(--hover)}
@@ -255,7 +260,7 @@ const COLS=[
   {k:'fees',label:'Fees',type:'text',nofilter:true},
   {k:'fees_received',label:'Rcvd',type:'text',nofilter:true},
   {k:'owner',label:'Owner',type:'enum'},
-  {k:'remarks',label:'Remarks',type:'text'}
+  {k:'remarks',label:'Remarks',type:'text',blanktoggle:true}
 ];
 
 let sb=null, rows=[], me="", channel=null;
@@ -399,6 +404,8 @@ function buildHead(){
   for(const c of COLS){
     const ctl = c.nofilter
       ? ``
+      : c.blanktoggle
+      ? `<div class="fwrap"><input class="fcol ft" data-col="${c.k}" placeholder="filter"/><button type="button" class="blkbtn" data-col="${c.k}" title="Show only rows with blank ${c.label.toLowerCase()}">Blank</button></div>`
       : c.type==='text'
       ? `<input class="fcol ft" data-col="${c.k}" placeholder="filter"/>`
       : c.type==='type'
@@ -408,6 +415,7 @@ function buildHead(){
   }
   h+="<th class='actc'></th></tr>"; thead.innerHTML=h;
   document.querySelectorAll("input.fcol").forEach(el=>{ if(colFilters[el.dataset.col]!=null) el.value=colFilters[el.dataset.col]; });
+  document.querySelectorAll(".blkbtn").forEach(b=>{ b.classList.toggle("act", !!colFilters[b.dataset.col+"__blank"]); });
   COLS.forEach(c=>{ if(c.type!=='text') updateMsBtn(c.k); });
   updateSortArrows();
 }
@@ -441,6 +449,7 @@ function filtered(){
         if(!ok) return false;
       }
     }
+    for(const key in colFilters){ if(colFilters[key]===true && key.endsWith("__blank")){ const col=key.slice(0,-7); if(String(r[col]==null?"":r[col]).trim()!=="") return false; } }
     return true;
   });
 }
@@ -527,6 +536,11 @@ document.addEventListener("blur",(e)=>{
 document.addEventListener("click",(e)=>{
   const tab=e.target.closest && e.target.closest(".tab");
   if(tab){ if(activeTab!==tab.dataset.tab){ activeTab=tab.dataset.tab; document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active", b===tab)); closeMs(); computeKpis(); renderTable(); } return; }
+  const blk=e.target.closest && e.target.closest(".blkbtn");
+  if(blk){ const col=blk.dataset.col, key=col+"__blank";
+    if(colFilters[key]){ delete colFilters[key]; blk.classList.remove("act"); }
+    else { colFilters[key]=true; blk.classList.add("act"); const inp=document.querySelector('input.fcol[data-col="'+col+'"]'); if(inp) inp.value=""; delete colFilters[col]; }
+    computeKpis(); renderTable(); saveView(); return; }
   const msb=e.target.closest && e.target.closest(".ms-btn");
   if(msb){ if(msOpenCol===msb.dataset.col) closeMs(); else openMs(msb); return; }
   if(!(e.target.closest && e.target.closest("#mspop"))) closeMs();
@@ -538,6 +552,7 @@ document.addEventListener("click",(e)=>{
 function clearFilters(){ for(const k in colFilters) delete colFilters[k]; sort={k:DEFAULT_SORT.k,dir:DEFAULT_SORT.dir};
   document.getElementById("q").value=""; document.getElementById("fStage").value="";
   document.querySelectorAll("input.fcol").forEach(el=>el.value="");
+  document.querySelectorAll(".blkbtn").forEach(b=>b.classList.remove("act"));
   COLS.forEach(c=>{ if(c.type!=='text') updateMsBtn(c.k); });
   closeMs(); updateSortArrows(); computeKpis(); renderTable(); saveView(); }
 
